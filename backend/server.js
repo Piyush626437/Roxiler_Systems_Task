@@ -15,6 +15,7 @@ dbConnection();
 // Use CORS middleware
 app.use(cors());
 
+// Function to seed the database with data from the API
 const seedDatabase = async() => {
     try {
         const response = await axios.get('https://s3.amazonaws.com/roxiler.com/product_transaction.json');
@@ -23,14 +24,21 @@ const seedDatabase = async() => {
         // Clear existing data
         await Transaction.deleteMany();
 
-        // Insert new data, ensuring dateOfSale is a Date object
+        // Map the data to match the schema fields
         const formattedData = data.map(item => ({
-            ...item,
-            dateOfSale: new Date(item.dateOfSale)
+            id: item.id, // If there's an id field in the API data
+            title: item.title,
+            description: item.description,
+            price: item.price,
+            category: item.category,
+            image: item.image, // Assuming this field contains the image URL
+            sold: item.sold, // Directly match the field name
+            dateOfSale: new Date(item.dateOfSale) // Ensure this is a valid Date object
         }));
 
+        // Insert the mapped data into the database
         await Transaction.insertMany(formattedData);
-        console.log('Database seeded successfully!');
+        console.log('Database seeded successfully with updated fields!');
     } catch (error) {
         console.error('Error seeding database:', error);
     }

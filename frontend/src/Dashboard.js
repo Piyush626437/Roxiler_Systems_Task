@@ -8,14 +8,16 @@ import './Dashboard.css';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 const Dashboard = () => {
-    const [month, setMonth] = useState('March');
+    const [month, setMonth] = useState('March'); // Default to "March"
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [transactions, setTransactions] = useState([]);
+    const [filteredTransactions, setFilteredTransactions] = useState([]);
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [perPage] = useState(10);
 
+    // Function to fetch combined data (statistics, bar chart, pie chart)
     const fetchCombinedData = useCallback(async () => {
         setLoading(true);
         try {
@@ -27,24 +29,46 @@ const Dashboard = () => {
         setLoading(false);
     }, [month]);
 
+    // Function to fetch transactions for the selected month
     const fetchTransactions = useCallback(async () => {
         try {
-            const transactionsData = await getTransactions(month, search, page, perPage);
+            const transactionsData = await getTransactions(month, '', page, perPage);
             setTransactions(transactionsData.transactions || []);
+            setFilteredTransactions(transactionsData.transactions || []);
         } catch (error) {
             console.error('Error fetching transactions:', error);
             setTransactions([]);
+            setFilteredTransactions([]);
         }
-    }, [month, search, page, perPage]);
+    }, [month, page, perPage]);
 
+    // Fetch data when month or page changes
     useEffect(() => {
         fetchCombinedData();
         fetchTransactions();
     }, [fetchCombinedData, fetchTransactions]);
 
+    // Filter transactions based on the search term
     const handleSearchChange = (e) => {
-        setSearch(e.target.value);
-        setPage(1); // Reset to the first page when a new search is applied
+        const searchTerm = e.target.value.toLowerCase();
+        setSearch(searchTerm);
+
+        if (searchTerm.trim() === '') {
+            setFilteredTransactions(transactions);
+        } else {
+            const filtered = transactions.filter(transaction =>
+                transaction.title.toLowerCase().includes(searchTerm) ||
+                transaction.description.toLowerCase().includes(searchTerm) ||
+                transaction.price.toString().includes(searchTerm)
+            );
+            setFilteredTransactions(filtered);
+        }
+    };
+
+    // Handle changes in the selected month
+    const handleMonthChange = (e) => {
+        setMonth(e.target.value);
+        setPage(1); // Reset to the first page when a new month is selected
     };
 
     const handleNextPage = () => {
@@ -103,56 +127,66 @@ const Dashboard = () => {
 
     return (
         <div className="dashboard">
-            <h1>Product Dashboard</h1>
-            <div className="month-selector">
-                <label>Select Month: </label>
-                <select value={month} onChange={(e) => setMonth(e.target.value)}>
-                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                    ))}
-                </select>
-            </div>
-
-            <div className="search">
-                <input
-                    type="text"
-                    placeholder="Search transactions..."
-                    value={search}
-                    onChange={handleSearchChange}
-                />
+            <h1>Transaction Dashboard</h1>
+            <div className="controls">
+                <div className="search">
+                    <input
+                        type="text"
+                        placeholder="Search transaction"
+                        value={search}
+                        onChange={handleSearchChange}
+                    />
+                </div>
+                <div className="month-selector">
+                    <button>Select Month</button>
+                    <select value={month} onChange={handleMonthChange}>
+                        {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             <table>
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>Title</th>
                         <th>Description</th>
                         <th>Price</th>
-                        <th>Date of Sale</th>
+                        <th>Category</th>
+                        <th>Sold</th>
+                        <th>Image</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {Array.isArray(transactions) && transactions.length > 0 ? (
-                        transactions.map((transaction) => (
+                    {Array.isArray(filteredTransactions) && filteredTransactions.length > 0 ? (
+                        filteredTransactions.map((transaction) => (
                             <tr key={transaction.id}>
+                                <td>{transaction.id}</td>
                                 <td>{transaction.title}</td>
                                 <td>{transaction.description}</td>
                                 <td>${transaction.price}</td>
-                                <td>{new Date(transaction.dateOfSale).toLocaleDateString()}</td>
+                                <td>{transaction.category}</td>
+                                <td>{transaction.sold ? 'Yes' : 'No'}</td>
+                                <td>
+                                    <img src={transaction.image} alt={transaction.title} width="50" height="50" />
+                                </td>
                             </tr>
                         ))
                     ) : (
                         <tr>
-                            <td colSpan="4">No transactions found for the selected month.</td>
+                            <td colSpan="7">No transactions found for the selected month.</td>
                         </tr>
                     )}
                 </tbody>
             </table>
 
             <div className="pagination">
+                <span>Page No: {page}</span>
                 <button onClick={handlePreviousPage} disabled={page === 1}>Previous</button>
-                <span>Page {page}</span>
                 <button onClick={handleNextPage}>Next</button>
+                <span>Per Page: {perPage}</span>
             </div>
 
             {data && (
